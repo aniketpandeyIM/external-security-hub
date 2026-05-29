@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { ASSETS, ISSUES, type Asset } from "@/lib/mock-data";
+import { ISSUES, type Asset } from "@/lib/mock-data";
+import { useAssets, assetStore } from "@/lib/asset-store";
 import { SeverityBadge, StatusPill } from "@/components/SeverityBadge";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { Search, Plus, Upload, RefreshCw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,12 +18,14 @@ export const Route = createFileRoute("/assets")({
 });
 
 function AssetInventory() {
+  const ASSETS = useAssets();
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
   const [severity, setSeverity] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<Asset | null>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
 
   const filtered = ASSETS.filter((a) => {
     if (q && !a.asset.includes(q) && !a.ip.includes(q)) return false;
@@ -87,7 +91,7 @@ function AssetInventory() {
           <span className="text-[13px]">{selected.size} selected</span>
           <div className="flex items-center gap-2">
             <button onClick={() => toast.info("Scanning selected")} className="h-8 rounded-md border px-3 text-[12px]" style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}>Scan Selected</button>
-            <button className="h-8 rounded-md border px-3 text-[12px]" style={{ borderColor: "var(--color-sev-critical)", color: "var(--color-sev-critical)" }}>Delete Selected</button>
+            <button onClick={() => setDeleteIds([...selected])} className="h-8 rounded-md border px-3 text-[12px]" style={{ borderColor: "var(--color-sev-critical)", color: "var(--color-sev-critical)" }}>Delete Selected</button>
             <button className="h-8 rounded-md border px-3 text-[12px]">Export Selected</button>
           </div>
         </div>
@@ -130,7 +134,7 @@ function AssetInventory() {
                 <td>
                   <div className="flex items-center gap-1">
                     <IconBtn onClick={() => toast.info(`Scanning ${a.asset}`)}><RefreshCw size={13} /></IconBtn>
-                    <IconBtn><Trash2 size={13} /></IconBtn>
+                    <IconBtn onClick={() => setDeleteIds([a.id])}><Trash2 size={13} /></IconBtn>
                   </div>
                 </td>
               </tr>
@@ -140,6 +144,24 @@ function AssetInventory() {
       </div>
 
       {drawer && <AssetDrawer asset={drawer} onClose={() => setDrawer(null)} />}
+
+      <ConfirmDeleteDialog
+        open={!!deleteIds}
+        itemLabel={
+          deleteIds && deleteIds.length === 1
+            ? ASSETS.find((a) => a.id === deleteIds[0])?.asset ?? "this asset"
+            : `${deleteIds?.length ?? 0} assets`
+        }
+        onCancel={() => setDeleteIds(null)}
+        onConfirm={() => {
+          if (deleteIds) {
+            assetStore.remove(deleteIds);
+            toast.success(`Deleted ${deleteIds.length} asset${deleteIds.length === 1 ? "" : "s"}`);
+            setSelected(new Set());
+            setDeleteIds(null);
+          }
+        }}
+      />
     </div>
   );
 }
