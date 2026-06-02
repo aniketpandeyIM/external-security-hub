@@ -229,11 +229,36 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
   );
 }
 
-function IconBtn({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+function IconBtn({ children, onClick, title }: { children: React.ReactNode; onClick?: () => void; title?: string }) {
   return (
-    <button onClick={onClick} className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-[var(--color-hover)] hover:text-foreground">
+    <button onClick={onClick} title={title} className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-[var(--color-hover)] hover:text-foreground">
       {children}
     </button>
+  );
+}
+
+function BannerCell({ asset }: { asset: Asset }) {
+  const b = asset.banner;
+  if (!b) return <span className="text-[12px] text-muted-foreground">—</span>;
+  if (b.error) return <span className="text-[11px] font-mono" style={{ color: "var(--color-muted-foreground)" }}>err: {b.error}</span>;
+  if (!b.server) return <span className="text-[11px] text-muted-foreground">no header</span>;
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="font-mono text-[12px]">{b.product ?? b.server}</span>
+      {b.version && (
+        <span
+          className="font-mono text-[11px] px-1.5 py-0.5 rounded"
+          style={{
+            background: "color-mix(in oklab, var(--color-sev-high) 14%, transparent)",
+            color: "var(--color-sev-high)",
+          }}
+          title="Version exposed in Server header"
+        >
+          {b.version}
+        </span>
+      )}
+      {b.exposed && <AlertTriangle size={11} style={{ color: "var(--color-sev-high)" }} />}
+    </div>
   );
 }
 
