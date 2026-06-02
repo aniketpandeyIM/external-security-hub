@@ -111,6 +111,14 @@ function AssetInventory() {
         ]} />
         <div className="flex-1" />
         <button
+          onClick={() => grabBanners(filtered)}
+          disabled={grabbing}
+          className="inline-flex items-center gap-1.5 h-9 rounded-md border px-3 text-[13px] font-medium disabled:opacity-50"
+          style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}
+        >
+          <Radar size={14} className={grabbing ? "animate-pulse" : ""} /> {grabbing ? "Grabbing…" : "Grab Banners"}
+        </button>
+        <button
           onClick={() => toast.success("Add asset form coming soon")}
           className="inline-flex items-center gap-1.5 h-9 rounded-md px-3 text-[13px] font-medium text-white"
           style={{ background: "#238636" }}
@@ -144,11 +152,12 @@ function AssetInventory() {
               <th>Asset</th>
               <th>Type</th>
               <th>IP Address</th>
+              <th>Server (banner)</th>
               <th>Open Issues</th>
               <th>Worst Severity</th>
               <th>Status</th>
               <th>Last Scan</th>
-              <th style={{ width: 80 }}>Actions</th>
+              <th style={{ width: 110 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -162,6 +171,7 @@ function AssetInventory() {
                 </td>
                 <td className="text-[12px] uppercase tracking-wider text-muted-foreground">{a.type}</td>
                 <td className="font-mono text-[12px] text-muted-foreground">{a.ip}</td>
+                <td><BannerCell asset={a} /></td>
                 <td>
                   <span className="font-mono tabular-nums text-[13px]" style={{ color: a.openIssues > 0 ? "var(--color-sev-critical)" : "var(--color-muted-foreground)" }}>
                     {a.openIssues}
@@ -172,8 +182,9 @@ function AssetInventory() {
                 <td className="text-[12px] text-muted-foreground">{a.lastScan}</td>
                 <td>
                   <div className="flex items-center gap-1">
-                    <IconBtn onClick={() => toast.info(`Scanning ${a.asset}`)}><RefreshCw size={13} /></IconBtn>
-                    <IconBtn onClick={() => setDeleteIds([a.id])}><Trash2 size={13} /></IconBtn>
+                    <IconBtn onClick={() => grabBanners([a])} title="Grab banner"><Radar size={13} /></IconBtn>
+                    <IconBtn onClick={() => toast.info(`Scanning ${a.asset}`)} title="Re-scan"><RefreshCw size={13} /></IconBtn>
+                    <IconBtn onClick={() => setDeleteIds([a.id])} title="Delete"><Trash2 size={13} /></IconBtn>
                   </div>
                 </td>
               </tr>
