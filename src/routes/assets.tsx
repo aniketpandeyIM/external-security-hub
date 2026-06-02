@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { ISSUES, type Asset } from "@/lib/mock-data";
 import { useAssets, assetStore } from "@/lib/asset-store";
+import { grabBanner } from "@/lib/banner.functions";
 import { SeverityBadge, StatusPill } from "@/components/SeverityBadge";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { Search, Plus, Upload, RefreshCw, Trash2, X } from "lucide-react";
+import { Search, Plus, Upload, RefreshCw, Trash2, X, Radar, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/assets")({
