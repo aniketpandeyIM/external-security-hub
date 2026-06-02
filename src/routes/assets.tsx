@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { ISSUES, type Asset } from "@/lib/mock-data";
 import { useAssets, assetStore } from "@/lib/asset-store";
+import { grabBanner } from "@/lib/banner.functions";
 import { SeverityBadge, StatusPill } from "@/components/SeverityBadge";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
-import { Search, Plus, Upload, RefreshCw, Trash2, X } from "lucide-react";
+import { Search, Plus, Upload, RefreshCw, Trash2, X, Radar, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/assets")({
@@ -19,6 +21,7 @@ export const Route = createFileRoute("/assets")({
 
 function AssetInventory() {
   const ASSETS = useAssets();
+  const grab = useServerFn(grabBanner);
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
@@ -26,6 +29,42 @@ function AssetInventory() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<Asset | null>(null);
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [grabbing, setGrabbing] = useState(false);
+
+  const grabBanners = async (targets: Asset[]) => {
+    if (!targets.length) return;
+    setGrabbing(true);
+    const t = toast.loading(`Grabbing banners for ${targets.length} asset${targets.length === 1 ? "" : "s"}…`);
+    let exposed = 0;
+    await Promise.all(
+      targets.map(async (a) => {
+        try {
+          const r = await grab({ data: { asset: a.asset } });
+          assetStore.setBanner(a.id, {
+            server: r.server,
+            poweredBy: r.poweredBy,
+            product: r.product,
+            version: r.version,
+            scheme: r.scheme,
+            status: r.status,
+            exposed: r.exposed,
+            error: r.error,
+            fetchedAt: r.fetchedAt,
+          });
+          if (r.exposed) exposed++;
+        } catch (e) {
+          assetStore.setBanner(a.id, {
+            server: null, poweredBy: null, product: null, version: null,
+            scheme: null, status: null, exposed: false,
+            error: (e as Error).message, fetchedAt: new Date().toISOString(),
+          });
+        }
+      }),
+    );
+    setGrabbing(false);
+    toast.dismiss(t);
+    toast.success(`Banner grab complete — ${exposed} version${exposed === 1 ? "" : "s"} exposed`);
+  };
 
   const filtered = ASSETS.filter((a) => {
     if (q && !a.asset.includes(q) && !a.ip.includes(q)) return false;
@@ -72,6 +111,14 @@ function AssetInventory() {
         ]} />
         <div className="flex-1" />
         <button
+          onClick={() => grabBanners(filtered)}
+          disabled={grabbing}
+          className="inline-flex items-center gap-1.5 h-9 rounded-md border px-3 text-[13px] font-medium disabled:opacity-50"
+          style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}
+        >
+          <Radar size={14} className={grabbing ? "animate-pulse" : ""} /> {grabbing ? "Grabbing…" : "Grab Banners"}
+        </button>
+        <button
           onClick={() => toast.success("Add asset form coming soon")}
           className="inline-flex items-center gap-1.5 h-9 rounded-md px-3 text-[13px] font-medium text-white"
           style={{ background: "#238636" }}
@@ -105,11 +152,12 @@ function AssetInventory() {
               <th>Asset</th>
               <th>Type</th>
               <th>IP Address</th>
+              <th>Server (banner)</th>
               <th>Open Issues</th>
               <th>Worst Severity</th>
               <th>Status</th>
               <th>Last Scan</th>
-              <th style={{ width: 80 }}>Actions</th>
+              <th style={{ width: 110 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -123,6 +171,7 @@ function AssetInventory() {
                 </td>
                 <td className="text-[12px] uppercase tracking-wider text-muted-foreground">{a.type}</td>
                 <td className="font-mono text-[12px] text-muted-foreground">{a.ip}</td>
+                <td><BannerCell asset={a} /></td>
                 <td>
                   <span className="font-mono tabular-nums text-[13px]" style={{ color: a.openIssues > 0 ? "var(--color-sev-critical)" : "var(--color-muted-foreground)" }}>
                     {a.openIssues}
@@ -133,8 +182,9 @@ function AssetInventory() {
                 <td className="text-[12px] text-muted-foreground">{a.lastScan}</td>
                 <td>
                   <div className="flex items-center gap-1">
-                    <IconBtn onClick={() => toast.info(`Scanning ${a.asset}`)}><RefreshCw size={13} /></IconBtn>
-                    <IconBtn onClick={() => setDeleteIds([a.id])}><Trash2 size={13} /></IconBtn>
+                    <IconBtn onClick={() => grabBanners([a])} title="Grab banner"><Radar size={13} /></IconBtn>
+                    <IconBtn onClick={() => toast.info(`Scanning ${a.asset}`)} title="Re-scan"><RefreshCw size={13} /></IconBtn>
+                    <IconBtn onClick={() => setDeleteIds([a.id])} title="Delete"><Trash2 size={13} /></IconBtn>
                   </div>
                 </td>
               </tr>
@@ -179,11 +229,36 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
   );
 }
 
-function IconBtn({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+function IconBtn({ children, onClick, title }: { children: React.ReactNode; onClick?: () => void; title?: string }) {
   return (
-    <button onClick={onClick} className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-[var(--color-hover)] hover:text-foreground">
+    <button onClick={onClick} title={title} className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-[var(--color-hover)] hover:text-foreground">
       {children}
     </button>
+  );
+}
+
+function BannerCell({ asset }: { asset: Asset }) {
+  const b = asset.banner;
+  if (!b) return <span className="text-[12px] text-muted-foreground">—</span>;
+  if (b.error) return <span className="text-[11px] font-mono" style={{ color: "var(--color-muted-foreground)" }}>err: {b.error}</span>;
+  if (!b.server) return <span className="text-[11px] text-muted-foreground">no header</span>;
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="font-mono text-[12px]">{b.product ?? b.server}</span>
+      {b.version && (
+        <span
+          className="font-mono text-[11px] px-1.5 py-0.5 rounded"
+          style={{
+            background: "color-mix(in oklab, var(--color-sev-high) 14%, transparent)",
+            color: "var(--color-sev-high)",
+          }}
+          title="Version exposed in Server header"
+        >
+          {b.version}
+        </span>
+      )}
+      {b.exposed && <AlertTriangle size={11} style={{ color: "var(--color-sev-high)" }} />}
+    </div>
   );
 }
 
