@@ -21,6 +21,7 @@ export const Route = createFileRoute("/assets")({
 
 function AssetInventory() {
   const ASSETS = useAssets();
+  const grab = useServerFn(grabBanner);
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
@@ -28,6 +29,42 @@ function AssetInventory() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<Asset | null>(null);
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [grabbing, setGrabbing] = useState(false);
+
+  const grabBanners = async (targets: Asset[]) => {
+    if (!targets.length) return;
+    setGrabbing(true);
+    const t = toast.loading(`Grabbing banners for ${targets.length} asset${targets.length === 1 ? "" : "s"}…`);
+    let exposed = 0;
+    await Promise.all(
+      targets.map(async (a) => {
+        try {
+          const r = await grab({ data: { asset: a.asset } });
+          assetStore.setBanner(a.id, {
+            server: r.server,
+            poweredBy: r.poweredBy,
+            product: r.product,
+            version: r.version,
+            scheme: r.scheme,
+            status: r.status,
+            exposed: r.exposed,
+            error: r.error,
+            fetchedAt: r.fetchedAt,
+          });
+          if (r.exposed) exposed++;
+        } catch (e) {
+          assetStore.setBanner(a.id, {
+            server: null, poweredBy: null, product: null, version: null,
+            scheme: null, status: null, exposed: false,
+            error: (e as Error).message, fetchedAt: new Date().toISOString(),
+          });
+        }
+      }),
+    );
+    setGrabbing(false);
+    toast.dismiss(t);
+    toast.success(`Banner grab complete — ${exposed} version${exposed === 1 ? "" : "s"} exposed`);
+  };
 
   const filtered = ASSETS.filter((a) => {
     if (q && !a.asset.includes(q) && !a.ip.includes(q)) return false;
