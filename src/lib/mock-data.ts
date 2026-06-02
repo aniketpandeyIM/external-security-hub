@@ -2,6 +2,18 @@ export type Severity = "critical" | "high" | "medium" | "low" | "info";
 export type AssetStatus = "open" | "resolved" | "scanning";
 export type AssetType = "domain" | "subdomain" | "ip";
 
+export interface AssetBanner {
+  server: string | null;
+  poweredBy: string | null;
+  product: string | null;
+  version: string | null;
+  scheme: "https" | "http" | null;
+  status: number | null;
+  exposed: boolean;
+  error?: string;
+  fetchedAt: string;
+}
+
 export interface Asset {
   id: string;
   asset: string;
@@ -11,6 +23,7 @@ export interface Asset {
   worstSeverity: Severity;
   status: AssetStatus;
   lastScan: string;
+  banner?: AssetBanner;
 }
 
 export interface Issue {

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { ASSETS, type Asset, type Severity, type AssetType } from "./mock-data";
+import { ASSETS, type Asset, type AssetBanner, type Severity, type AssetType } from "./mock-data";
 
 let assets: Asset[] = [...ASSETS];
 const listeners = new Set<() => void>();
@@ -42,6 +42,10 @@ export const assetStore = {
   remove: (ids: string[]) => {
     const set = new Set(ids);
     assets = assets.filter((a) => !set.has(a.id));
+    emit();
+  },
+  setBanner: (id: string, banner: AssetBanner) => {
+    assets = assets.map((a) => (a.id === id ? { ...a, banner } : a));
     emit();
   },
   subscribe: (l: () => void) => {
